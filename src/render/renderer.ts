@@ -29,7 +29,7 @@ export class BoardRenderer {
   hoverValid = false;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.scene.background = new THREE.Color(0x0b1020);
+    this.scene.background = new THREE.Color(0x151b2c);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -39,7 +39,7 @@ export class BoardRenderer {
     sun.position.set(8, 22, 6);
     this.scene.add(sun);
 
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a2744, roughness: 0.92 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3b5c, roughness: 0.88 });
     this.ground = new THREE.Mesh(new THREE.PlaneGeometry(COLS, ROWS), groundMat);
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.position.set(COLS / 2, 0, ROWS / 2);
@@ -47,12 +47,12 @@ export class BoardRenderer {
 
     this.scene.add(this.makeTileGrid());
 
-    this.addEdgeStrip(0, 0x2f6b45);
-    this.addEdgeStrip(ROWS - 1, 0x7a3030);
+    this.addEdgeStrip(0, 0x3dcc74);
+    this.addEdgeStrip(ROWS - 1, 0xe25b5b);
 
     this.hover = new THREE.Mesh(
       new THREE.PlaneGeometry(TOWER_SIZE, TOWER_SIZE),
-      new THREE.MeshBasicMaterial({ color: 0x6fca8a, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color: 0x6fca8a, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
     );
     this.hover.rotation.x = -Math.PI / 2;
     this.hover.position.y = 0.03;
@@ -133,13 +133,13 @@ export class BoardRenderer {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-    return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x2c3d5c }));
+    return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x6b82a8 }));
   }
 
   private addEdgeStrip(row: number, color: number): void {
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(COLS, 1),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.28, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, side: THREE.DoubleSide }),
     );
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.set(COLS / 2, 0.02, row + 0.5);
