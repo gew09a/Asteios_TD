@@ -107,6 +107,18 @@ describe("DEV cheat", () => {
     expect(g.towers[1].buildRemaining).toBe(T1_BUILD_SECONDS);
   });
 
+  it("cheat-only B wall-off is ignored when cheat is off", () => {
+    const g = new Game();
+    expect(g.blockForSmashTest()).toBe(false);
+    expect(g.towers).toHaveLength(0);
+    expect(g.gold).toBe(START_GOLD);
+    g.setCheat(true);
+    expect(g.blockForSmashTest()).toBe(true);
+    expect(g.towers).toHaveLength(10);
+    expect(g.pathBlocked).toBe(true);
+    expect(g.gold).toBe(START_GOLD);
+  });
+
   it("turning cheat on finishes in-progress builds but turning it off does not refund gold", () => {
     const g = new Game();
     g.placeExact(0, 0, "bolt", 2);
