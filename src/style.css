@@ -1,0 +1,166 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b1020;
+  --panel: #141b2e;
+  --ink: #e8eef8;
+  --muted: #93a0b8;
+  --line: #2a3654;
+  --bolt: #e8b84a;
+  --frost: #5ec8e8;
+  --venom: #7dce6a;
+  --danger: #e25b5b;
+  --ok: #6fca8a;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+#hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.stat {
+  min-width: 4.5rem;
+}
+
+.stat b {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.picks {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: #1d2740;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #6b7ca3;
+}
+
+button.selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 0;
+}
+
+button.bolt.selected {
+  outline-color: var(--bolt);
+}
+button.frost.selected {
+  outline-color: var(--frost);
+}
+button.venom.selected {
+  outline-color: var(--venom);
+}
+
+button.cheat {
+  margin-left: auto;
+  border-color: #8a4b16;
+  background: #2a1b12;
+  color: #f0c38a;
+  font-weight: 700;
+}
+
+button.cheat.on {
+  background: #7a2e10;
+  color: #fff4d6;
+  border-color: #ffb060;
+}
+
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#banner,
+#overlay {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+#banner {
+  top: 10px;
+  background: #7a1d1d;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+#overlay {
+  inset: 0;
+  transform: none;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 8, 14, 0.72);
+  pointer-events: auto;
+}
+
+#overlay .card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 18px 22px;
+  border-radius: 8px;
+  text-align: center;
+  min-width: 240px;
+}
+
+#overlay h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+#overlay p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
