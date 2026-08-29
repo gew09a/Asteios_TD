@@ -1,6 +1,6 @@
 # Asteios TD
 
-Wintermaul-style maze tower defense. First playable: one 20×32 channel, three T1/T2 types, smash-through if you wall off.
+Wintermaul-style maze tower defense. One 20×32 channel, six T1 types, T2 as an upgrade, smash-through if you wall off.
 
 ## Windows (Command Prompt)
 
@@ -18,16 +18,16 @@ Then open http://localhost:5173
 
 ## Play
 
-- Blank 20×32 channel. Creeps spawn on the green short edge and exit on the red one. Default path is a straight shot.
-- Towers are **2×2**. Creeps are **1 tile**. **1-tile gaps are the maze.** Towers cannot overlap.
-- You may close the last path. Creeps then smash in a straight line to the exit and **delete every tower they walk through** (no gold refund). After a hole is punched, remaining creeps use the opened path.
-- Start **500g**. T1 **50g / 4s**. T2 **150g / 10s**, about **2×** T1 power. No T3.
-- Types: **Bolt** (raw DPS), **Frost** (slow, low damage), **Venom** (DoT — wants a long path). Builds run in parallel and do not shoot until finished.
-- 15s prep before wave 1. Wave 1 is 20 creeps at 12g each — a crude 10 T1 maze should hold; lining the walls should leak.
-- **10 lives**. A leak costs 1. 0 lives ends the run. Restart is a fresh run (no meta persist).
-- **DEV cheat** is a labeled toggle and is **OFF by default**. Turn it on only for pathing / smash tests: infinite gold and instant builds. While it is on, `B` seals a mid-channel wall so you can watch smash-through. Normal play uses the real economy and real build times.
+- Blank 20×32 channel. Creeps spawn across the **full 20-wide** green edge and exit on the red one.
+- Towers are **2×2**. Creeps are **1 tile**. **1-tile gaps are the maze.** Click an empty tile to place the selected T1 (ghost preview). Click a cube for **Upgrade** / **Sell** only — no type switcher on the cube.
+- T1 is **50g / 4s**. T2 is a **+100g / 10s** upgrade of that same cube (150g total). Sell refunds 100% of spend (50 or 150). Smash-through still deletes with **no refund**.
+- Types: **Basic** (generalist, wave-1 one-shot at Basic range), **Sniper** (long range — cannot delete spawn from the exit), **Slow**, **Poison** (DoT), **Splash** (maze clumps), **Haste** (fast, lighter hits). No T3.
+- Start **500g**. Wave 1 is 20 creeps at **25g** — a gold grant for the maze, not the real fight. Later waves ramp faster than gold.
+- Closing the last path is allowed. Creeps smash straight to the exit and delete every tower they walk through.
+- **10 lives**. Restart is a fresh run (no meta persist).
+- HUD sits **beside** the channel. **DEV cheat** is labeled and **OFF by default**. ON = infinite gold + instant builds. While ON, `B` seals a mid-channel wall.
 
-Keys: `1` Bolt, `2` Frost, `3` Venom, `Q` T1, `W` T2, `R` restart. Cheat on: `B` wall-off.
+Keys: `1`–`6` type shortcuts, `R` restart. Cheat on: `B` wall-off.
 
 ## Scripts (any OS)
 

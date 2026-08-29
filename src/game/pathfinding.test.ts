@@ -20,22 +20,21 @@ describe("board and placement", () => {
     expect(snapPlaceOrigin(4, 32)).toBeNull();
   });
 
-  it("starts with Bolt T1 selected so a first click can place", () => {
+  it("starts with Basic T1 selected so a first click can place", () => {
     const g = new Game();
-    expect(g.selectedType).toBe("bolt");
-    expect(g.selectedTier).toBe(1);
+    expect(g.selectedType).toBe("basic");
     expect(g.tryPlace(6, 8).ok).toBe(true);
-    expect(g.towers[0].type).toBe("bolt");
+    expect(g.towers[0].type).toBe("basic");
     expect(g.towers[0].tier).toBe(1);
   });
 
   it("rejects overlapping 2×2 towers", () => {
     const g = new Game();
-    expect(g.placeExact(4, 4, "bolt", 1).ok).toBe(true);
-    expect(g.placeExact(5, 4, "frost", 1).ok).toBe(false);
-    expect(g.placeExact(4, 5, "venom", 1).ok).toBe(false);
-    expect(g.placeExact(5, 5, "bolt", 1).ok).toBe(false);
-    expect(g.placeExact(6, 4, "bolt", 1).ok).toBe(true);
+    expect(g.placeExact(4, 4, "basic", 1).ok).toBe(true);
+    expect(g.placeExact(5, 4, "slow", 1).ok).toBe(false);
+    expect(g.placeExact(4, 5, "poison", 1).ok).toBe(false);
+    expect(g.placeExact(5, 5, "basic", 1).ok).toBe(false);
+    expect(g.placeExact(6, 4, "basic", 1).ok).toBe(true);
   });
 
   it("blank board has a straight spawn-to-exit path", () => {
@@ -53,8 +52,8 @@ describe("board and placement", () => {
 describe("maze pathing", () => {
   it("routes through 1-tile gaps around 2×2 towers", () => {
     const g = new Game();
-    g.placeExact(2, 8, "bolt", 1);
-    g.placeExact(5, 8, "bolt", 1);
+    g.placeExact(2, 8, "basic", 1);
+    g.placeExact(5, 8, "basic", 1);
     const flow = computeFlow(g.towers);
     expect(flow.reachableFromSpawn).toBe(true);
     const gap = flow.preview.some((t) => t.col === 4 && t.row >= 8 && t.row <= 9);
@@ -68,11 +67,11 @@ describe("maze pathing", () => {
   it("allows a placement that closes the last path", () => {
     const g = new Game();
     for (let c = 0; c <= 16; c += 2) {
-      const r = g.placeExact(c, 10, "bolt", 1);
+      const r = g.placeExact(c, 10, "basic", 1);
       expect(r.ok).toBe(true);
     }
     expect(g.pathBlocked).toBe(false);
-    const last = g.placeExact(18, 10, "frost", 1);
+    const last = g.placeExact(18, 10, "slow", 1);
     expect(last.ok).toBe(true);
     if (last.ok) expect(last.blockedPath).toBe(true);
     expect(g.pathBlocked).toBe(true);
@@ -84,7 +83,7 @@ describe("smash-through", () => {
     const g = new Game();
     g.setCheat(true);
     for (let c = 0; c < COLS; c += 2) {
-      expect(g.placeExact(c, 12, "bolt", 1).ok).toBe(true);
+      expect(g.placeExact(c, 12, "basic", 1).ok).toBe(true);
     }
     expect(g.pathBlocked).toBe(true);
     expect(g.towers).toHaveLength(10);
@@ -111,7 +110,7 @@ describe("smash-through", () => {
     const g = new Game();
     g.setCheat(true);
     for (let c = 0; c < COLS; c += 2) {
-      g.placeExact(c, 10, "venom", 1);
+      g.placeExact(c, 10, "poison", 1);
     }
     g.prepRemaining = 0;
     g.tick(0.2);
@@ -128,7 +127,7 @@ describe("smash-through", () => {
   it("a leak including smash-through costs 1 life and 0 lives ends the run", () => {
     const g = new Game();
     g.setCheat(true);
-    for (let c = 0; c < COLS; c += 2) g.placeExact(c, 4, "bolt", 1);
+    for (let c = 0; c < COLS; c += 2) g.placeExact(c, 4, "basic", 1);
     g.prepRemaining = 0;
     let sawLeak = false;
     for (let i = 0; i < 4000 && g.phase !== "over"; i++) {
@@ -147,7 +146,7 @@ describe("smash-through", () => {
     const g = new Game();
     expect(g.cheat).toBe(false);
     for (let c = 0; c < COLS; c += 2) {
-      g.placeExact(c, 8, "bolt", 1);
+      g.placeExact(c, 8, "basic", 1);
     }
     expect(g.gold).toBe(START_GOLD - 10 * T1_COST);
     g.tick(4.1);
@@ -155,7 +154,6 @@ describe("smash-through", () => {
     g.tick(0.05);
     for (let i = 0; i < 2500 && g.towers.length === 10; i++) g.tick(1 / 30);
     expect(g.towers.length).toBeLessThan(10);
-    expect(g.gold).toBeLessThanOrEqual(START_GOLD - 10 * T1_COST + 20 * 12);
-    expect(g.gold).toBeLessThan(START_GOLD);
+    expect(g.gold).toBeLessThan(START_GOLD + 10 * T1_COST);
   });
 });

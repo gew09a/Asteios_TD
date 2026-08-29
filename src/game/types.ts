@@ -10,6 +10,7 @@ export interface Tower {
   tier: TowerTier;
   col: number;
   row: number;
+  spent: number;
   buildRemaining: number;
   buildTotal: number;
   cooldown: number;
@@ -22,6 +23,7 @@ export interface Creep {
   hp: number;
   maxHp: number;
   bounty: number;
+  armor: number;
   slowRemaining: number;
   slowFactor: number;
   dotRemaining: number;
@@ -64,8 +66,8 @@ export interface Snapshot {
   creepsAlive: number;
   creepsRemainingInWave: number;
   selectedType: TowerType;
-  selectedTier: TowerTier;
   selectedCost: number;
+  inspectId: number | null;
   cheat: boolean;
   pathBlocked: boolean;
   towers: Tower[];
