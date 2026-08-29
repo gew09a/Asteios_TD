@@ -5,6 +5,7 @@ import "./style.css";
 
 const hud = document.querySelector<HTMLElement>("#hud")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#board")!;
+const stage = document.querySelector<HTMLElement>("#stage")!;
 const banner = document.querySelector<HTMLElement>("#banner")!;
 const overlay = document.querySelector<HTMLElement>("#overlay")!;
 
@@ -15,23 +16,31 @@ const view = new BoardRenderer(canvas);
 mountHud(hud, game);
 bindKeys(game);
 
-canvas.addEventListener("pointermove", (e) => {
+function overlayBlocking(): boolean {
+  return !overlay.hidden;
+}
+
+function onBoardPointer(e: PointerEvent): void {
+  if (overlayBlocking()) {
+    view.hideHover();
+    return;
+  }
   const tile = view.pickTile(e.clientX, e.clientY);
   if (!tile) {
     view.hideHover();
     return;
   }
-  view.setHover(tile.col, tile.row, game.canPlaceAt(tile.col, tile.row) && game.canAfford(game.selectedCost));
-});
+  const valid = game.canPlaceAt(tile.col, tile.row) && game.canAfford(game.selectedCost);
+  view.setHover(tile.col, tile.row, valid);
+  if (e.type === "pointerdown" && e.button === 0) {
+    e.preventDefault();
+    game.tryPlace(tile.col, tile.row);
+  }
+}
 
-canvas.addEventListener("pointerleave", () => view.hideHover());
-
-canvas.addEventListener("pointerdown", (e) => {
-  if (e.button !== 0) return;
-  const tile = view.pickTile(e.clientX, e.clientY);
-  if (!tile) return;
-  game.tryPlace(tile.col, tile.row);
-});
+stage.addEventListener("pointermove", onBoardPointer);
+stage.addEventListener("pointerdown", onBoardPointer);
+stage.addEventListener("pointerleave", () => view.hideHover());
 
 window.addEventListener("resize", () => view.resize());
 

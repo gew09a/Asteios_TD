@@ -16,6 +16,15 @@ export function towerFits(col: number, row: number): boolean {
   return col >= 0 && row >= 0 && col + TOWER_SIZE <= COLS && row + TOWER_SIZE <= ROWS;
 }
 
+/** Clamp a clicked tile to a legal 2×2 origin, or null if off the channel. */
+export function snapPlaceOrigin(col: number, row: number): { col: number; row: number } | null {
+  if (!inBounds(col, row)) return null;
+  return {
+    col: Math.min(col, COLS - TOWER_SIZE),
+    row: Math.min(row, ROWS - TOWER_SIZE),
+  };
+}
+
 export function towerCovers(tower: Pick<Tower, "col" | "row">, col: number, row: number): boolean {
   return (
     col >= tower.col &&

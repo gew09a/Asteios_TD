@@ -115,18 +115,15 @@ button.cheat.on {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-#banner,
-#overlay {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
+  cursor: crosshair;
 }
 
 #banner {
+  position: absolute;
+  left: 50%;
   top: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
   background: #7a1d1d;
   color: #fff;
   padding: 6px 12px;
@@ -135,10 +132,17 @@ button.cheat.on {
   font-size: 14px;
 }
 
-#overlay {
+/*
+  #overlay { display: flex } used to beat the [hidden] UA rule, so the
+  empty game-over layer stayed on top of the canvas and ate every click.
+*/
+#overlay[hidden] {
+  display: none !important;
+}
+
+#overlay:not([hidden]) {
+  position: absolute;
   inset: 0;
-  transform: none;
-  left: 0;
   display: flex;
   align-items: center;
   justify-content: center;

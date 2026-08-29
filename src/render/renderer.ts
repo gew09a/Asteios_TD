@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { COLS, ROWS, TOWER_SIZE } from "../game/config";
+import { snapPlaceOrigin } from "../game/pathfinding";
 import type { Snapshot, TowerType } from "../game/types";
 
 const TYPE_COLOR: Record<TowerType, number> = {
@@ -14,6 +15,9 @@ export class BoardRenderer {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
+  private readonly boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private readonly hitPoint = new THREE.Vector3();
+  private readonly resizeObserver: ResizeObserver;
   private readonly ground: THREE.Mesh;
   private readonly hover: THREE.Mesh;
   private readonly pathLine: THREE.Line;
@@ -60,6 +64,7 @@ export class BoardRenderer {
     );
     this.hover.rotation.x = -Math.PI / 2;
     this.hover.position.y = 0.03;
+    this.hover.visible = false;
     this.scene.add(this.hover);
 
     this.pathLine = new THREE.Line(
@@ -69,6 +74,8 @@ export class BoardRenderer {
     this.scene.add(this.pathLine);
 
     this.scene.add(this.towerGroup, this.creepGroup, this.shotGroup);
+    this.resizeObserver = new ResizeObserver(() => this.resize());
+    this.resizeObserver.observe(canvas);
     this.resize();
   }
 
@@ -91,15 +98,17 @@ export class BoardRenderer {
   }
 
   pickTile(clientX: number, clientY: number): { col: number; row: number } | null {
-    const rect = this.renderer.domElement.getBoundingClientRect();
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
     this.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    this.camera.updateMatrixWorld();
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hit = this.raycaster.intersectObject(this.ground)[0];
-    if (!hit) return null;
-    const col = Math.floor(hit.point.x);
-    const row = Math.floor(hit.point.z);
-    return { col, row };
+    if (!this.raycaster.ray.intersectPlane(this.boardPlane, this.hitPoint)) return null;
+    const col = Math.floor(this.hitPoint.x);
+    const row = Math.floor(this.hitPoint.z);
+    return snapPlaceOrigin(col, row);
   }
 
   setHover(col: number, row: number, valid: boolean): void {
