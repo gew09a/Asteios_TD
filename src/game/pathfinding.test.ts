@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COLS, ROWS, START_GOLD, T1_COST } from "./config";
 import { Game } from "./game";
-import { computeFlow, towerFits } from "./pathfinding";
+import { computeFlow, snapPlaceOrigin, towerFits } from "./pathfinding";
 
 describe("board and placement", () => {
   it("is a 20×32 channel and towers are 2×2", () => {
@@ -10,6 +10,23 @@ describe("board and placement", () => {
     expect(towerFits(18, 30)).toBe(true);
     expect(towerFits(19, 30)).toBe(false);
     expect(towerFits(18, 31)).toBe(false);
+  });
+
+  it("snaps a click on the channel to a legal 2×2 origin", () => {
+    expect(snapPlaceOrigin(0, 0)).toEqual({ col: 0, row: 0 });
+    expect(snapPlaceOrigin(10, 16)).toEqual({ col: 10, row: 16 });
+    expect(snapPlaceOrigin(19, 31)).toEqual({ col: 18, row: 30 });
+    expect(snapPlaceOrigin(-1, 4)).toBeNull();
+    expect(snapPlaceOrigin(4, 32)).toBeNull();
+  });
+
+  it("starts with Bolt T1 selected so a first click can place", () => {
+    const g = new Game();
+    expect(g.selectedType).toBe("bolt");
+    expect(g.selectedTier).toBe(1);
+    expect(g.tryPlace(6, 8).ok).toBe(true);
+    expect(g.towers[0].type).toBe("bolt");
+    expect(g.towers[0].tier).toBe(1);
   });
 
   it("rejects overlapping 2×2 towers", () => {
