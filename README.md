@@ -25,9 +25,9 @@ Then open http://localhost:5173
 - Types: **Bolt** (raw DPS), **Frost** (slow, low damage), **Venom** (DoT — wants a long path). Builds run in parallel and do not shoot until finished.
 - 15s prep before wave 1. Wave 1 is 20 creeps at 12g each — a crude 10 T1 maze should hold; lining the walls should leak.
 - **10 lives**. A leak costs 1. 0 lives ends the run. Restart is a fresh run (no meta persist).
-- **DEV cheat** is a labeled toggle and is **OFF by default**. Turn it on only for pathing / smash tests: infinite gold and instant builds. Normal play uses the real economy and real build times.
+- **DEV cheat** is a labeled toggle and is **OFF by default**. Turn it on only for pathing / smash tests: infinite gold and instant builds. While it is on, `B` seals a mid-channel wall so you can watch smash-through. Normal play uses the real economy and real build times.
 
-Keys: `1` Bolt, `2` Frost, `3` Venom, `Q` T1, `W` T2, `R` restart.
+Keys: `1` Bolt, `2` Frost, `3` Venom, `Q` T1, `W` T2, `R` restart. Cheat on: `B` wall-off.
 
 ## Scripts (any OS)
 

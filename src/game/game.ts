@@ -80,6 +80,22 @@ export class Game {
     this.setCheat(!this.cheat);
   }
 
+  /** Cheat-only helper: seal a mid-channel row so smash-through can be tested. */
+  blockForSmashTest(): boolean {
+    if (!this.cheat || this.phase === "over") return false;
+    const prevType = this.selectedType;
+    const prevTier = this.selectedTier;
+    this.selectedType = "bolt";
+    this.selectedTier = 1;
+    let placed = 0;
+    for (let col = 0; col < COLS; col += 2) {
+      if (this.tryPlace(col, 14).ok) placed += 1;
+    }
+    this.selectedType = prevType;
+    this.selectedTier = prevTier;
+    return placed > 0;
+  }
+
   restart(): void {
     const keepCheat = this.cheat;
     const type = this.selectedType;

@@ -43,6 +43,7 @@ export function bindKeys(game: Game): void {
     if (e.key === "q" || e.key === "Q") game.selectTower(game.selectedType, 1);
     if (e.key === "w" || e.key === "W") game.selectTower(game.selectedType, 2);
     if (e.key === "r" || e.key === "R") game.restart();
+    if ((e.key === "b" || e.key === "B") && game.cheat) game.blockForSmashTest();
   });
 }
 
