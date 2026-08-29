@@ -9,6 +9,7 @@ const banner = document.querySelector<HTMLElement>("#banner")!;
 const overlay = document.querySelector<HTMLElement>("#overlay")!;
 
 const game = new Game();
+(window as Window & { __asteios?: Game }).__asteios = game;
 const view = new BoardRenderer(canvas);
 
 mountHud(hud, game);

@@ -29,7 +29,7 @@ export class BoardRenderer {
   hoverValid = false;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.scene.background = new THREE.Color(0x151b2c);
+    this.scene.background = new THREE.Color(0x1c2438);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -39,7 +39,11 @@ export class BoardRenderer {
     sun.position.set(8, 22, 6);
     this.scene.add(sun);
 
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3b5c, roughness: 0.88 });
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x4a628c,
+      roughness: 0.82,
+      metalness: 0.05,
+    });
     this.ground = new THREE.Mesh(new THREE.PlaneGeometry(COLS, ROWS), groundMat);
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.position.set(COLS / 2, 0, ROWS / 2);
@@ -133,7 +137,7 @@ export class BoardRenderer {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-    return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x6b82a8 }));
+    return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xc5d4ee }));
   }
 
   private addEdgeStrip(row: number, color: number): void {
@@ -177,7 +181,8 @@ export class BoardRenderer {
       mat.color.setHex(TYPE_COLOR[t.type]);
       mat.opacity = built ? 1 : 0.45 + progress * 0.55;
       mat.transparent = !built;
-      mat.emissive.setHex(built ? 0x000000 : 0x222222);
+      mat.emissive.setHex(built ? TYPE_COLOR[t.type] : 0x333333);
+      mat.emissiveIntensity = built ? 0.18 : 0.05;
       this.drawBuildRing(mesh, progress, built);
     }
     for (const [id, mesh] of this.towerMeshes) {
