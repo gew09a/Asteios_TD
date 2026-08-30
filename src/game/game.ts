@@ -5,13 +5,12 @@ import {
   ROWS,
   START_GOLD,
   START_LIVES,
-  T1_COST,
-  T2_BUILD_SECONDS,
-  T2_UPGRADE_COST,
   TOWER_SIZE,
   TOWER_STATS,
   TYPE_COLOR,
   WAVE1_PREP_SECONDS,
+  t1Cost,
+  t2UpgradeCost,
   waveSpec,
   type TowerType,
 } from "./config";
@@ -50,7 +49,7 @@ export class Game {
   private flow: FlowField = computeFlow([]);
   private toSpawn = 0;
   private spawnCooldown = 0;
-  private spawnCol = 0;
+  private spawnBag: number[] = [];
   private waveGold = 0;
   private waveHp = 0;
   private waveArmor = 0;
@@ -65,7 +64,7 @@ export class Game {
   }
 
   get selectedCost(): number {
-    return T1_COST;
+    return t1Cost(this.selectedType);
   }
 
   get inspected(): Tower | null {
@@ -122,7 +121,7 @@ export class Game {
     this.shots = [];
     this.toSpawn = 0;
     this.spawnCooldown = 0;
-    this.spawnCol = 0;
+    this.spawnBag = [];
     this.inspectId = null;
     this.selectedType = type;
     this.cheat = keepCheat;
@@ -152,8 +151,9 @@ export class Game {
       return { ok: false, reason: "overlap" };
     }
     const stats = TOWER_STATS[this.selectedType][1];
-    if (!this.canAfford(T1_COST)) return { ok: false, reason: "no-gold" };
-    if (!this.cheat) this.gold -= T1_COST;
+    const cost = stats.cost;
+    if (!this.canAfford(cost)) return { ok: false, reason: "no-gold" };
+    if (!this.cheat) this.gold -= cost;
 
     const buildTotal = this.cheat ? 0 : stats.buildSeconds;
     const tower: Tower = {
@@ -162,7 +162,7 @@ export class Game {
       tier: 1,
       col,
       row,
-      spent: T1_COST,
+      spent: cost,
       buildRemaining: buildTotal,
       buildTotal: stats.buildSeconds,
       cooldown: 0,
@@ -176,17 +176,19 @@ export class Game {
   canUpgrade(tower: Tower): boolean {
     if (this.phase === "over") return false;
     if (tower.tier !== 1 || tower.buildRemaining > 0) return false;
-    return this.canAfford(T2_UPGRADE_COST);
+    return this.canAfford(t2UpgradeCost(tower.type));
   }
 
   tryUpgrade(towerId: number): boolean {
     const tower = this.towers.find((t) => t.id === towerId);
     if (!tower || !this.canUpgrade(tower)) return false;
-    if (!this.cheat) this.gold -= T2_UPGRADE_COST;
+    const up = t2UpgradeCost(tower.type);
+    if (!this.cheat) this.gold -= up;
     tower.tier = 2;
-    tower.spent = T1_COST + T2_UPGRADE_COST;
-    tower.buildRemaining = this.cheat ? 0 : T2_BUILD_SECONDS;
-    tower.buildTotal = T2_BUILD_SECONDS;
+    tower.spent = t1Cost(tower.type) + up;
+    const build = TOWER_STATS[tower.type][2].buildSeconds;
+    tower.buildRemaining = this.cheat ? 0 : build;
+    tower.buildTotal = build;
     tower.cooldown = 0;
     return true;
   }
@@ -298,10 +300,33 @@ export class Game {
     if (this.pathBlocked) this.beginSmash();
   }
 
+  private takeSpawnCol(blocked: boolean[][]): number {
+    if (this.spawnBag.length === 0) {
+      const bag: number[] = [];
+      for (let c = 0; c < COLS; c++) bag.push(c);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = bag[i];
+        bag[i] = bag[j];
+        bag[j] = tmp;
+      }
+      this.spawnBag = bag;
+    }
+    const col = this.spawnBag.pop() ?? 0;
+    if (blocked[col][0] && !this.pathBlocked) {
+      const open = this.spawnBag.findIndex((c) => !blocked[c][0]);
+      if (open >= 0) {
+        const swap = this.spawnBag[open];
+        this.spawnBag[open] = col;
+        return swap;
+      }
+    }
+    return col;
+  }
+
   private spawnCreep(): void {
-    const col = this.spawnCol % COLS;
-    this.spawnCol += 1;
     const blocked = blockedSet(this.towers);
+    const col = this.takeSpawnCol(blocked);
     const smash = this.pathBlocked || blocked[col][0];
     this.creeps.push({
       id: id(),
@@ -399,11 +424,13 @@ export class Game {
     raw: number,
     effects: { slowFactor?: number; slowSeconds?: number; dotDps?: number; dotSeconds?: number } | null,
   ): void {
-    creep.hp -= Math.max(1, raw - creep.armor);
+    if (raw > 0) creep.hp -= Math.max(1, raw - creep.armor);
     if (!effects) return;
     if (effects.slowFactor !== undefined && effects.slowSeconds !== undefined) {
-      creep.slowFactor = effects.slowFactor;
-      creep.slowRemaining = effects.slowSeconds;
+      if (creep.slowRemaining <= 0 || effects.slowFactor <= creep.slowFactor) {
+        creep.slowFactor = effects.slowFactor;
+        creep.slowRemaining = effects.slowSeconds;
+      }
     }
     if (effects.dotDps !== undefined && effects.dotSeconds !== undefined) {
       creep.dotDps = effects.dotDps;

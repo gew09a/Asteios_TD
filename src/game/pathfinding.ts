@@ -1,11 +1,18 @@
 import { COLS, ROWS, TOWER_SIZE } from "./config";
 import type { Tile, Tower } from "./types";
 
-const DIRS: ReadonlyArray<readonly [number, number]> = [
+const CARD: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
   [1, 0],
   [-1, 0],
   [0, -1],
+];
+
+const DIAG: ReadonlyArray<readonly [number, number]> = [
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
 ];
 
 export function inBounds(col: number, row: number): boolean {
@@ -73,16 +80,44 @@ export interface FlowField {
   preview: Tile[];
 }
 
-function walkableNeighbors(col: number, row: number, blocked: boolean[][], out: Tile[]): void {
+/**
+ * Diagonal is legal only if both orthogonal adjacent tiles are walkable.
+ * Two 2×2 cubes that meet at a point cannot be squeezed through.
+ */
+export function canStep(
+  col: number,
+  row: number,
+  dc: number,
+  dr: number,
+  blocked: boolean[][],
+): boolean {
+  const nc = col + dc;
+  const nr = row + dr;
+  if (!inBounds(nc, nr) || blocked[nc][nr]) return false;
+  if (dc !== 0 && dr !== 0) {
+    if (!inBounds(col + dc, row) || !inBounds(col, row + dr)) return false;
+    if (blocked[col + dc][row] || blocked[col][row + dr]) return false;
+  }
+  return true;
+}
+
+export interface Step extends Tile {
+  cost: number;
+}
+
+export function walkableSteps(col: number, row: number, blocked: boolean[][], out: Step[]): void {
   out.length = 0;
-  for (const [dc, dr] of DIRS) {
-    const nc = col + dc;
-    const nr = row + dr;
-    if (inBounds(nc, nr) && !blocked[nc][nr]) out.push({ col: nc, row: nr });
+  for (const [dc, dr] of CARD) {
+    if (canStep(col, row, dc, dr, blocked)) out.push({ col: col + dc, row: row + dr, cost: 1 });
+  }
+  for (const [dc, dr] of DIAG) {
+    if (canStep(col, row, dc, dr, blocked)) {
+      out.push({ col: col + dc, row: row + dr, cost: Math.SQRT2 });
+    }
   }
 }
 
-/** BFS from every walkable exit-edge tile. Prefer +row when distances tie. */
+/** Octile Dijkstra from every walkable exit-edge tile. Cardinals are tried first so ties stay straight. */
 export function computeFlow(towers: readonly Pick<Tower, "col" | "row">[]): FlowField {
   const blocked = blockedSet(towers);
   const total = COLS * ROWS;
@@ -90,30 +125,63 @@ export function computeFlow(towers: readonly Pick<Tower, "col" | "row">[]): Flow
   const dist = new Float64Array(total);
   dist.fill(Infinity);
 
-  const q: number[] = [];
-  let head = 0;
+  const heap: number[] = [];
+
+  const push = (k: number): void => {
+    heap.push(k);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (dist[heap[p]] <= dist[heap[i]]) break;
+      const tmp = heap[p];
+      heap[p] = heap[i];
+      heap[i] = tmp;
+      i = p;
+    }
+  };
+
+  const pop = (): number => {
+    const root = heap[0];
+    const last = heap.pop();
+    if (heap.length === 0 || last === undefined) return root;
+    heap[0] = last;
+    let i = 0;
+    for (;;) {
+      const l = i * 2 + 1;
+      const r = l + 1;
+      let s = i;
+      if (l < heap.length && dist[heap[l]] < dist[heap[s]]) s = l;
+      if (r < heap.length && dist[heap[r]] < dist[heap[s]]) s = r;
+      if (s === i) break;
+      const tmp = heap[s];
+      heap[s] = heap[i];
+      heap[i] = tmp;
+      i = s;
+    }
+    return root;
+  };
 
   for (let c = 0; c < COLS; c++) {
     if (!blocked[c][ROWS - 1]) {
       const k = tileKey(c, ROWS - 1);
       dist[k] = 0;
-      q.push(k);
+      push(k);
     }
   }
 
-  const neigh: Tile[] = [];
-  while (head < q.length) {
-    const cur = q[head++];
+  const neigh: Step[] = [];
+  while (heap.length > 0) {
+    const cur = pop();
     const col = cur % COLS;
     const row = (cur / COLS) | 0;
-    walkableNeighbors(col, row, blocked, neigh);
+    walkableSteps(col, row, blocked, neigh);
     for (const n of neigh) {
       const nk = tileKey(n.col, n.row);
-      const nd = dist[cur] + 1;
-      if (nd < dist[nk]) {
+      const nd = dist[cur] + n.cost;
+      if (nd + 1e-9 < dist[nk]) {
         dist[nk] = nd;
         next[nk] = { col, row };
-        q.push(nk);
+        push(nk);
       }
     }
   }
@@ -156,7 +224,7 @@ export function pickSpawnKey(blocked: boolean[][], dist: ArrayLike<number>): num
     const k = tileKey(c, 0);
     const d = dist[k];
     const center = Math.abs(c - CENTER);
-    if (d < bestDist || (d === bestDist && center < bestCenter)) {
+    if (d < bestDist - 1e-9 || (Math.abs(d - bestDist) <= 1e-9 && center < bestCenter)) {
       bestDist = d;
       bestCenter = center;
       best = k;
