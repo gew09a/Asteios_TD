@@ -1,8 +1,8 @@
 import {
   FUNNEL_ORIGINS,
+  FUNNEL_TURN,
   FULL_ROW_ORIGINS,
   MAZE_BEND_ORIGINS,
-  MIXED_BEND_TYPES,
   T1_BUILD_SECONDS,
 } from "./config";
 import { Game } from "./game";
@@ -76,24 +76,35 @@ export function simulateTwoBasicRowsThrough(wave: number): WaveSimResult {
   return runUntilWaveDone(game, wave, 180);
 }
 
-/** Funnel of Basics, then a mixed chicane bought with the wave-1 grant. */
-export function simulateMixedMazeThrough(wave: number): WaveSimResult {
+/** Funnel of Basics that forces a corridor, then more Basics plus one Slow. */
+export function simulateBasicMazeThrough(wave: number): WaveSimResult {
   const game = new Game();
   placeLayout(game, FUNNEL_ORIGINS, "basic");
-  const turn = game.placeExact(18, 5, "slow", 1);
-  if (!turn.ok) throw new Error(`Failed to place maze turn: ${turn.reason}`);
+  const turn = game.placeExact(FUNNEL_TURN[0], FUNNEL_TURN[1], "basic", 1);
+  if (!turn.ok) throw new Error(`Failed funnel turn: ${turn.reason}`);
   game.tick(T1_BUILD_SECONDS + 0.05);
   const first = runUntilWaveDone(game, 1, 90);
-  if (first.leaked > 0 || game.gold < 500) {
+  if (first.leaked > 0 || game.gold < 450) {
     return { ...first, wave: game.wave };
   }
-  MAZE_BEND_ORIGINS.forEach(([col, row], i) => {
-    const type = MIXED_BEND_TYPES[i] ?? "basic";
-    const result = game.placeExact(col, row, type, 1);
-    if (!result.ok) throw new Error(`Failed maze bend ${col},${row}: ${result.reason}`);
-  });
-  const tail = game.placeExact(0, 14, "poison", 1);
-  if (!tail.ok) throw new Error(`Failed maze tail: ${tail.reason}`);
+  placeLayout(game, MAZE_BEND_ORIGINS, "basic");
+  if (game.gold >= 125) {
+    const spice = game.placeExact(0, 14, "slow", 1);
+    if (!spice.ok) throw new Error(`Failed maze spice: ${spice.reason}`);
+  }
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  const through2 = runUntilWaveDone(game, Math.min(2, wave), 180);
+  if (wave <= 2) return through2;
+  const extras: Array<readonly [number, number]> = [
+    [0, 14],
+    [2, 14],
+    [16, 20],
+    [18, 20],
+  ];
+  for (const [col, row] of extras) {
+    if (game.gold < 50) break;
+    game.placeExact(col, row, "basic", 1);
+  }
   game.tick(T1_BUILD_SECONDS + 0.05);
   return runUntilWaveDone(game, wave, 240);
 }

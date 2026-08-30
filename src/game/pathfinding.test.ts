@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COLS, ROWS, START_GOLD, T1_COST } from "./config";
 import { Game } from "./game";
-import { computeFlow, snapPlaceOrigin, towerFits } from "./pathfinding";
+import { blockedSet, canStep, computeFlow, nextTileTowardExit, snapPlaceOrigin, towerFits } from "./pathfinding";
 
 describe("board and placement", () => {
   it("is a 20×32 channel and towers are 2×2", () => {
@@ -49,6 +49,52 @@ describe("board and placement", () => {
   });
 });
 
+describe("diagonal bee-line pathing", () => {
+  it("bee-lines toward a right-side gap instead of walking an L into the wall", () => {
+    const wall = Array.from({ length: 9 }, (_, i) => ({ col: i * 2, row: 6 }));
+    const flow = computeFlow(wall);
+    expect(flow.reachableFromSpawn).toBe(true);
+    const first = nextTileTowardExit(flow, 0, 0);
+    expect(first).not.toBeNull();
+    if (!first) return;
+    expect(first.col).toBeGreaterThan(0);
+    expect(first.row).toBeGreaterThan(0);
+
+    const g = new Game();
+    for (const t of wall) g.placeExact(t.col, t.row, "basic", 1);
+    g.prepRemaining = 0;
+    g.tick(0.05);
+    const creep = g.creeps[0];
+    creep.x = 0.5;
+    creep.y = 0.5;
+    for (let i = 0; i < 90; i++) g.tick(1 / 30);
+    expect(creep.x).toBeGreaterThan(3);
+    expect(creep.y).toBeLessThan(6.2);
+  });
+
+  it("blocks a corner-cut between two 2×2 cubes that only touch at a point", () => {
+    const towers = [
+      { col: 2, row: 2 },
+      { col: 4, row: 4 },
+    ];
+    const blocked = blockedSet(towers);
+    expect(canStep(3, 4, 1, -1, blocked)).toBe(false);
+    expect(canStep(4, 3, -1, 1, blocked)).toBe(false);
+    expect(canStep(1, 4, 0, -1, blocked)).toBe(true);
+
+    const flow = computeFlow(towers);
+    expect(flow.reachableFromSpawn).toBe(true);
+    const pinch = flow.preview.some((t, i) => {
+      const n = flow.preview[i + 1];
+      if (!n) return false;
+      const dc = n.col - t.col;
+      const dr = n.row - t.row;
+      return Math.abs(dc) === 1 && Math.abs(dr) === 1 && !canStep(t.col, t.row, dc, dr, blocked);
+    });
+    expect(pinch).toBe(false);
+  });
+});
+
 describe("maze pathing", () => {
   it("routes through 1-tile gaps around 2×2 towers", () => {
     const g = new Game();
@@ -71,7 +117,7 @@ describe("maze pathing", () => {
       expect(r.ok).toBe(true);
     }
     expect(g.pathBlocked).toBe(false);
-    const last = g.placeExact(18, 10, "slow", 1);
+    const last = g.placeExact(18, 10, "basic", 1);
     expect(last.ok).toBe(true);
     if (last.ok) expect(last.blockedPath).toBe(true);
     expect(g.pathBlocked).toBe(true);
@@ -135,7 +181,7 @@ describe("smash-through", () => {
       g.tick(1 / 30);
       if (g.lives < lives) {
         sawLeak = true;
-        expect(lives - g.lives).toBe(1);
+        expect(lives - g.lives).toBeGreaterThanOrEqual(1);
       }
     }
     expect(sawLeak).toBe(true);

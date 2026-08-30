@@ -1,4 +1,4 @@
-import { T2_UPGRADE_COST, TOWER_TYPES, TYPE_LABEL, type TowerType } from "../game/config";
+import { TOWER_TYPES, TYPE_LABEL, t1Cost, t2UpgradeCost, type TowerType } from "../game/config";
 import type { Game } from "../game/game";
 import type { Snapshot } from "../game/types";
 import type { BoardRenderer } from "../render/renderer";
@@ -21,7 +21,7 @@ export function mountHud(root: HTMLElement, game: Game): void {
     const btn = document.createElement("button");
     btn.className = type;
     btn.dataset.type = type;
-    btn.textContent = `${TYPE_LABEL[type]} 50g`;
+    btn.textContent = `${TYPE_LABEL[type]} ${t1Cost(type)}g`;
     btn.addEventListener("click", () => game.selectType(type));
     picks.appendChild(btn);
   }
@@ -35,11 +35,11 @@ export function bindKeys(game: Game): void {
     if (e.repeat) return;
     const map: Record<string, TowerType> = {
       "1": "basic",
-      "2": "sniper",
-      "3": "slow",
+      "2": "slow",
+      "3": "haste",
       "4": "poison",
       "5": "splash",
-      "6": "haste",
+      "6": "sniper",
     };
     if (map[e.key]) game.selectType(map[e.key]);
     if (e.key === "r" || e.key === "R") game.restart();
@@ -88,7 +88,7 @@ export function renderCubePop(
     pop.hidden = false;
     pop.innerHTML = `
       <strong>${TYPE_LABEL[tower.type]} T${tower.tier}</strong>
-      <button type="button" data-k="up" ${canUp ? "" : "disabled"}>Upgrade +${T2_UPGRADE_COST}</button>
+      <button type="button" data-k="up" ${canUp ? "" : "disabled"}>Upgrade +${t2UpgradeCost(tower.type)}</button>
       <button type="button" data-k="sell">Sell ${tower.spent}</button>
     `;
     pop.querySelector("[data-k=up]")?.addEventListener("click", (e) => {
