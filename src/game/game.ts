@@ -5,11 +5,14 @@ import {
   ROWS,
   START_GOLD,
   START_LIVES,
+  T1_COST,
+  T2_BUILD_SECONDS,
+  T2_UPGRADE_COST,
   TOWER_SIZE,
   TOWER_STATS,
+  TYPE_COLOR,
   WAVE1_PREP_SECONDS,
   waveSpec,
-  type TowerTier,
   type TowerType,
 } from "./config";
 import {
@@ -17,7 +20,6 @@ import {
   computeFlow,
   inBounds,
   nextTileTowardExit,
-  spawnTile,
   towerCovers,
   towerFits,
   towersOverlap,
@@ -38,8 +40,8 @@ export class Game {
   prepRemaining = WAVE1_PREP_SECONDS;
   cheat = false;
 
-  selectedType: TowerType = "bolt";
-  selectedTier: TowerTier = 1;
+  selectedType: TowerType = "basic";
+  inspectId: number | null = null;
 
   towers: Tower[] = [];
   creeps: Creep[] = [];
@@ -48,9 +50,11 @@ export class Game {
   private flow: FlowField = computeFlow([]);
   private toSpawn = 0;
   private spawnCooldown = 0;
+  private spawnCol = 0;
   private waveGold = 0;
   private waveHp = 0;
-  private spawnInterval = 0.55;
+  private waveArmor = 0;
+  private spawnInterval = 0.4;
 
   constructor() {
     this.refreshFlow();
@@ -61,12 +65,24 @@ export class Game {
   }
 
   get selectedCost(): number {
-    return TOWER_STATS[this.selectedType][this.selectedTier].cost;
+    return T1_COST;
   }
 
-  selectTower(type: TowerType, tier: TowerTier): void {
+  get inspected(): Tower | null {
+    if (this.inspectId === null) return null;
+    return this.towers.find((t) => t.id === this.inspectId) ?? null;
+  }
+
+  selectType(type: TowerType): void {
     this.selectedType = type;
-    this.selectedTier = tier;
+  }
+
+  inspectTower(id: number): void {
+    this.inspectId = this.towers.some((t) => t.id === id) ? id : null;
+  }
+
+  clearInspect(): void {
+    this.inspectId = null;
   }
 
   setCheat(on: boolean): void {
@@ -83,23 +99,19 @@ export class Game {
   /** Cheat-only helper: seal a mid-channel row so smash-through can be tested. */
   blockForSmashTest(): boolean {
     if (!this.cheat || this.phase === "over") return false;
-    const prevType = this.selectedType;
-    const prevTier = this.selectedTier;
-    this.selectedType = "bolt";
-    this.selectedTier = 1;
+    const prev = this.selectedType;
+    this.selectedType = "basic";
     let placed = 0;
     for (let col = 0; col < COLS; col += 2) {
       if (this.tryPlace(col, 14).ok) placed += 1;
     }
-    this.selectedType = prevType;
-    this.selectedTier = prevTier;
+    this.selectedType = prev;
     return placed > 0;
   }
 
   restart(): void {
     const keepCheat = this.cheat;
     const type = this.selectedType;
-    const tier = this.selectedTier;
     this.gold = START_GOLD;
     this.lives = START_LIVES;
     this.wave = 1;
@@ -110,8 +122,9 @@ export class Game {
     this.shots = [];
     this.toSpawn = 0;
     this.spawnCooldown = 0;
+    this.spawnCol = 0;
+    this.inspectId = null;
     this.selectedType = type;
-    this.selectedTier = tier;
     this.cheat = keepCheat;
     this.refreshFlow();
   }
@@ -127,6 +140,10 @@ export class Game {
     return !this.towers.some((t) => towersOverlap(t, ghost));
   }
 
+  towerCovering(col: number, row: number): Tower | undefined {
+    return this.towers.find((t) => towerCovers(t, col, row));
+  }
+
   tryPlace(col: number, row: number): PlaceResult {
     if (this.phase === "over") return { ok: false, reason: "game-over" };
     if (!towerFits(col, row)) return { ok: false, reason: "out-of-bounds" };
@@ -134,17 +151,18 @@ export class Game {
     if (this.towers.some((t) => towersOverlap(t, ghost))) {
       return { ok: false, reason: "overlap" };
     }
-    const stats = TOWER_STATS[this.selectedType][this.selectedTier];
-    if (!this.canAfford(stats.cost)) return { ok: false, reason: "no-gold" };
-    if (!this.cheat) this.gold -= stats.cost;
+    const stats = TOWER_STATS[this.selectedType][1];
+    if (!this.canAfford(T1_COST)) return { ok: false, reason: "no-gold" };
+    if (!this.cheat) this.gold -= T1_COST;
 
     const buildTotal = this.cheat ? 0 : stats.buildSeconds;
     const tower: Tower = {
       id: id(),
       type: this.selectedType,
-      tier: this.selectedTier,
+      tier: 1,
       col,
       row,
+      spent: T1_COST,
       buildRemaining: buildTotal,
       buildTotal: stats.buildSeconds,
       cooldown: 0,
@@ -155,15 +173,45 @@ export class Game {
     return { ok: true, blockedPath: this.pathBlocked, tower };
   }
 
-  /** Test helper: place a specific type/tier without changing the player's selection. */
-  placeExact(col: number, row: number, type: TowerType, tier: TowerTier): PlaceResult {
-    const prevType = this.selectedType;
-    const prevTier = this.selectedTier;
+  canUpgrade(tower: Tower): boolean {
+    if (this.phase === "over") return false;
+    if (tower.tier !== 1 || tower.buildRemaining > 0) return false;
+    return this.canAfford(T2_UPGRADE_COST);
+  }
+
+  tryUpgrade(towerId: number): boolean {
+    const tower = this.towers.find((t) => t.id === towerId);
+    if (!tower || !this.canUpgrade(tower)) return false;
+    if (!this.cheat) this.gold -= T2_UPGRADE_COST;
+    tower.tier = 2;
+    tower.spent = T1_COST + T2_UPGRADE_COST;
+    tower.buildRemaining = this.cheat ? 0 : T2_BUILD_SECONDS;
+    tower.buildTotal = T2_BUILD_SECONDS;
+    tower.cooldown = 0;
+    return true;
+  }
+
+  trySell(towerId: number): boolean {
+    const tower = this.towers.find((t) => t.id === towerId);
+    if (!tower || this.phase === "over") return false;
+    if (!this.cheat) this.gold += tower.spent;
+    this.towers = this.towers.filter((t) => t.id !== towerId);
+    if (this.inspectId === towerId) this.inspectId = null;
+    this.refreshFlow();
+    return true;
+  }
+
+  /** Test helper: place a T1, optionally finish+upgrade to T2. */
+  placeExact(col: number, row: number, type: TowerType, tier: 1 | 2 = 1): PlaceResult {
+    const prev = this.selectedType;
     this.selectedType = type;
-    this.selectedTier = tier;
     const result = this.tryPlace(col, row);
-    this.selectedType = prevType;
-    this.selectedTier = prevTier;
+    this.selectedType = prev;
+    if (!result.ok || tier !== 2) return result;
+    result.tower.buildRemaining = 0;
+    this.tryUpgrade(result.tower.id);
+    result.tower.buildRemaining = this.cheat ? 0 : result.tower.buildRemaining;
+    if (this.cheat) result.tower.buildRemaining = 0;
     return result;
   }
 
@@ -181,6 +229,7 @@ export class Game {
     this.tickCreeps(dt);
     this.ageShots(dt);
     this.cullDead();
+    this.dropInspectIfGone();
     this.maybeFinishWave();
   }
 
@@ -194,8 +243,8 @@ export class Game {
       creepsAlive: this.creeps.length,
       creepsRemainingInWave: this.toSpawn,
       selectedType: this.selectedType,
-      selectedTier: this.selectedTier,
       selectedCost: this.selectedCost,
+      inspectId: this.inspected ? this.inspectId : null,
       cheat: this.cheat,
       pathBlocked: this.pathBlocked,
       towers: this.towers,
@@ -203,6 +252,11 @@ export class Game {
       shots: this.shots,
       pathPreview: this.flow.preview,
     };
+  }
+
+  private dropInspectIfGone(): void {
+    if (this.inspectId === null) return;
+    if (!this.towers.some((t) => t.id === this.inspectId)) this.inspectId = null;
   }
 
   private refreshFlow(): void {
@@ -237,6 +291,7 @@ export class Game {
     this.toSpawn = spec.count;
     this.waveHp = spec.hp;
     this.waveGold = spec.gold;
+    this.waveArmor = spec.armor;
     this.spawnInterval = spec.interval;
     this.spawnCooldown = 0;
     this.refreshFlow();
@@ -244,16 +299,18 @@ export class Game {
   }
 
   private spawnCreep(): void {
+    const col = this.spawnCol % COLS;
+    this.spawnCol += 1;
     const blocked = blockedSet(this.towers);
-    const tile = spawnTile(this.flow, blocked);
-    const smash = this.pathBlocked;
+    const smash = this.pathBlocked || blocked[col][0];
     this.creeps.push({
       id: id(),
-      x: tile.col + 0.5,
-      y: tile.row + 0.5,
+      x: col + 0.5,
+      y: 0.5,
       hp: this.waveHp,
       maxHp: this.waveHp,
       bounty: this.waveGold,
+      armor: this.waveArmor,
       slowRemaining: 0,
       slowFactor: 1,
       dotRemaining: 0,
@@ -275,7 +332,7 @@ export class Game {
     for (const c of this.creeps) {
       if (c.dotRemaining <= 0) continue;
       const step = Math.min(dt, c.dotRemaining);
-      c.hp -= c.dotDps * step;
+      c.hp -= Math.max(0, c.dotDps - c.armor * 0.25) * step;
       c.dotRemaining -= step;
       if (c.dotRemaining <= 0) c.dotDps = 0;
     }
@@ -305,9 +362,8 @@ export class Game {
       const dx = c.x - cx;
       const dy = c.y - cy;
       if (dx * dx + dy * dy > r2) continue;
-      const towardExit = c.y;
-      if (towardExit > bestScore) {
-        bestScore = towardExit;
+      if (c.y > bestScore) {
+        bestScore = c.y;
         best = c;
       }
     }
@@ -316,26 +372,43 @@ export class Game {
 
   private fire(tower: Tower, creep: Creep, cx: number, cy: number): void {
     const stats = TOWER_STATS[tower.type][tower.tier];
-    creep.hp -= stats.damage;
-    if (stats.slowFactor !== undefined && stats.slowSeconds !== undefined) {
-      creep.slowFactor = stats.slowFactor;
-      creep.slowRemaining = stats.slowSeconds;
+    this.hit(creep, stats.damage, stats);
+    if (stats.splashRadius && stats.splashScale) {
+      const r2 = stats.splashRadius * stats.splashRadius;
+      for (const other of this.creeps) {
+        if (other.id === creep.id || other.hp <= 0) continue;
+        const dx = other.x - creep.x;
+        const dy = other.y - creep.y;
+        if (dx * dx + dy * dy > r2) continue;
+        this.hit(other, stats.damage * stats.splashScale, null);
+      }
     }
-    if (stats.dotDps !== undefined && stats.dotSeconds !== undefined) {
-      creep.dotDps = stats.dotDps;
-      creep.dotRemaining = stats.dotSeconds;
-    }
-    const color =
-      tower.type === "bolt" ? 0xe8b84a : tower.type === "frost" ? 0x5ec8e8 : 0x7dce6a;
     this.shots.push({
       id: id(),
       x0: cx,
       y0: cy,
       x1: creep.x,
       y1: creep.y,
-      color,
+      color: TYPE_COLOR[tower.type],
       ttl: 0.12,
     });
+  }
+
+  private hit(
+    creep: Creep,
+    raw: number,
+    effects: { slowFactor?: number; slowSeconds?: number; dotDps?: number; dotSeconds?: number } | null,
+  ): void {
+    creep.hp -= Math.max(1, raw - creep.armor);
+    if (!effects) return;
+    if (effects.slowFactor !== undefined && effects.slowSeconds !== undefined) {
+      creep.slowFactor = effects.slowFactor;
+      creep.slowRemaining = effects.slowSeconds;
+    }
+    if (effects.dotDps !== undefined && effects.dotSeconds !== undefined) {
+      creep.dotDps = effects.dotDps;
+      creep.dotRemaining = effects.dotSeconds;
+    }
   }
 
   private tickCreeps(dt: number): void {
@@ -349,9 +422,7 @@ export class Game {
       const speed = CREEP_SPEED * (c.slowRemaining > 0 ? c.slowFactor : 1);
       this.advanceCreep(c, speed * dt, blocked);
       if (c.hp <= 0) continue;
-      if (c.y >= ROWS - 0.05) {
-        this.leak(c);
-      }
+      if (c.y >= ROWS - 0.05) this.leak(c);
     }
   }
 

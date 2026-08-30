@@ -1,13 +1,7 @@
 import * as THREE from "three";
-import { COLS, ROWS, TOWER_SIZE } from "../game/config";
-import { snapPlaceOrigin } from "../game/pathfinding";
-import type { Snapshot, TowerType } from "../game/types";
-
-const TYPE_COLOR: Record<TowerType, number> = {
-  bolt: 0xe8b84a,
-  frost: 0x5ec8e8,
-  venom: 0x7dce6a,
-};
+import { COLS, ROWS, TOWER_SIZE, TYPE_COLOR } from "../game/config";
+import { inBounds, snapPlaceOrigin } from "../game/pathfinding";
+import type { Snapshot } from "../game/types";
 
 export class BoardRenderer {
   readonly camera: THREE.OrthographicCamera;
@@ -97,7 +91,7 @@ export class BoardRenderer {
     this.camera.updateProjectionMatrix();
   }
 
-  pickTile(clientX: number, clientY: number): { col: number; row: number } | null {
+  pickCell(clientX: number, clientY: number): { col: number; row: number } | null {
     const canvas = this.renderer.domElement;
     const rect = canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return null;
@@ -108,7 +102,27 @@ export class BoardRenderer {
     if (!this.raycaster.ray.intersectPlane(this.boardPlane, this.hitPoint)) return null;
     const col = Math.floor(this.hitPoint.x);
     const row = Math.floor(this.hitPoint.z);
-    return snapPlaceOrigin(col, row);
+    if (!inBounds(col, row)) return null;
+    return { col, row };
+  }
+
+  pickTile(clientX: number, clientY: number): { col: number; row: number } | null {
+    const cell = this.pickCell(clientX, clientY);
+    if (!cell) return null;
+    return snapPlaceOrigin(cell.col, cell.row);
+  }
+
+  worldToStage(col: number, row: number, stage: HTMLElement): { x: number; y: number } | null {
+    const canvas = this.renderer.domElement;
+    const canvasRect = canvas.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    if (canvasRect.width < 1 || canvasRect.height < 1) return null;
+    const v = new THREE.Vector3(col + 1, 1.4, row + 1);
+    v.project(this.camera);
+    return {
+      x: (v.x * 0.5 + 0.5) * canvasRect.width + (canvasRect.left - stageRect.left),
+      y: (-v.y * 0.5 + 0.5) * canvasRect.height + (canvasRect.top - stageRect.top),
+    };
   }
 
   setHover(col: number, row: number, valid: boolean): void {
@@ -190,8 +204,9 @@ export class BoardRenderer {
       mat.color.setHex(TYPE_COLOR[t.type]);
       mat.opacity = built ? 1 : 0.45 + progress * 0.55;
       mat.transparent = !built;
-      mat.emissive.setHex(built ? TYPE_COLOR[t.type] : 0x333333);
-      mat.emissiveIntensity = built ? 0.18 : 0.05;
+      const selected = snap.inspectId === t.id;
+      mat.emissive.setHex(selected ? 0xffffff : built ? TYPE_COLOR[t.type] : 0x333333);
+      mat.emissiveIntensity = selected ? 0.45 : built ? 0.18 : 0.05;
       this.drawBuildRing(mesh, progress, built);
     }
     for (const [id, mesh] of this.towerMeshes) {

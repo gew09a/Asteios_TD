@@ -1,4 +1,10 @@
-import { CRUDE_MAZE_ORIGINS, T1_BUILD_SECONDS, WALL_LINE_ORIGINS } from "./config";
+import {
+  FUNNEL_ORIGINS,
+  FULL_ROW_ORIGINS,
+  MAZE_BEND_ORIGINS,
+  MIXED_BEND_TYPES,
+  T1_BUILD_SECONDS,
+} from "./config";
 import { Game } from "./game";
 import type { TowerType } from "./types";
 
@@ -9,24 +15,23 @@ export interface WaveSimResult {
   towersLeft: number;
   gold: number;
   gameTime: number;
+  wave: number;
 }
 
 export function placeLayout(
   game: Game,
   origins: ReadonlyArray<readonly [number, number]>,
-  type: TowerType = "bolt",
-  tier: 1 | 2 = 1,
+  type: TowerType = "basic",
 ): void {
   for (const [col, row] of origins) {
-    const result = game.placeExact(col, row, type, tier);
+    const result = game.placeExact(col, row, type, 1);
     if (!result.ok) {
-      throw new Error(`Failed to place ${type} T${tier} at ${col},${row}: ${result.reason}`);
+      throw new Error(`Failed to place ${type} at ${col},${row}: ${result.reason}`);
     }
   }
 }
 
-/** Fast-forward a live run until wave 1 ends or `limit` seconds elapse. */
-export function runUntilWave1Done(game: Game, limit = 90): WaveSimResult {
+export function runUntilWaveDone(game: Game, targetWave: number, limit = 120): WaveSimResult {
   const dt = 1 / 30;
   let t = 0;
   let leaked = 0;
@@ -37,38 +42,58 @@ export function runUntilWave1Done(game: Game, limit = 90): WaveSimResult {
     t += dt;
     if (game.lives < livesBefore) leaked += livesBefore - game.lives;
     if (game.phase === "over") break;
-    const wave1Over = game.wave > 1;
-    if (wave1Over && game.creeps.length === 0) break;
+    if (game.wave > targetWave && game.creeps.length === 0) break;
   }
 
-  const killed = 20 - leaked;
   return {
     leaked,
-    killed,
+    killed: Math.max(0, 20 - leaked),
     livesLeft: game.lives,
     towersLeft: game.towers.length,
     gold: game.gold,
     gameTime: t,
+    wave: game.wave,
   };
 }
 
-export function simulateWave1Layout(
-  origins: ReadonlyArray<readonly [number, number]>,
-  waitForBuilds = true,
-): WaveSimResult {
+export function simulateWave1Row(): WaveSimResult {
   const game = new Game();
-  if (game.cheat) throw new Error("cheat must be off for balance sims");
-  placeLayout(game, origins, "bolt", 1);
-  if (waitForBuilds) {
-    game.tick(T1_BUILD_SECONDS + 0.05);
+  placeLayout(game, FULL_ROW_ORIGINS(2), "basic");
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  return runUntilWaveDone(game, 1);
+}
+
+export function simulateTwoBasicRowsThrough(wave: number): WaveSimResult {
+  const game = new Game();
+  placeLayout(game, FULL_ROW_ORIGINS(2), "basic");
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  const first = runUntilWaveDone(game, 1, 90);
+  if (first.leaked > 0 || game.gold < 500) {
+    return { ...first, wave: game.wave };
   }
-  return runUntilWave1Done(game);
+  placeLayout(game, FULL_ROW_ORIGINS(6), "basic");
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  return runUntilWaveDone(game, wave, 180);
 }
 
-export function simulateCrudeMaze(): WaveSimResult {
-  return simulateWave1Layout(CRUDE_MAZE_ORIGINS);
-}
-
-export function simulateWallLine(): WaveSimResult {
-  return simulateWave1Layout(WALL_LINE_ORIGINS);
+/** Funnel of Basics, then a mixed chicane bought with the wave-1 grant. */
+export function simulateMixedMazeThrough(wave: number): WaveSimResult {
+  const game = new Game();
+  placeLayout(game, FUNNEL_ORIGINS, "basic");
+  const turn = game.placeExact(18, 5, "slow", 1);
+  if (!turn.ok) throw new Error(`Failed to place maze turn: ${turn.reason}`);
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  const first = runUntilWaveDone(game, 1, 90);
+  if (first.leaked > 0 || game.gold < 500) {
+    return { ...first, wave: game.wave };
+  }
+  MAZE_BEND_ORIGINS.forEach(([col, row], i) => {
+    const type = MIXED_BEND_TYPES[i] ?? "basic";
+    const result = game.placeExact(col, row, type, 1);
+    if (!result.ok) throw new Error(`Failed maze bend ${col},${row}: ${result.reason}`);
+  });
+  const tail = game.placeExact(0, 14, "poison", 1);
+  if (!tail.ok) throw new Error(`Failed maze tail: ${tail.reason}`);
+  game.tick(T1_BUILD_SECONDS + 0.05);
+  return runUntilWaveDone(game, wave, 240);
 }

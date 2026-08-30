@@ -5,9 +5,12 @@
   --ink: #e8eef8;
   --muted: #93a0b8;
   --line: #2a3654;
-  --bolt: #e8b84a;
-  --frost: #5ec8e8;
-  --venom: #7dce6a;
+  --basic: #d8d2c4;
+  --sniper: #6aa8ff;
+  --slow: #5ec8e8;
+  --poison: #7dce6a;
+  --splash: #e8a04a;
+  --haste: #e87ad4;
   --danger: #e25b5b;
   --ok: #6fca8a;
   font-family: "Segoe UI", system-ui, sans-serif;
@@ -28,27 +31,45 @@ body,
 
 #app {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+}
+
+#stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+#board {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
 }
 
 #hud {
+  width: 248px;
+  flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-  padding: 6px 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  border-left: 1px solid var(--line);
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 1.25;
+  overflow-y: auto;
 }
 
 .stat {
-  min-width: 4.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
 }
 
 .stat b {
-  display: block;
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -58,8 +79,18 @@ body,
 
 .picks {
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  flex-wrap: wrap;
+}
+
+.picks button {
+  text-align: left;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0;
 }
 
 button {
@@ -68,12 +99,17 @@ button {
   background: #1d2740;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   border-color: #6b7ca3;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 button.selected {
@@ -81,18 +117,26 @@ button.selected {
   outline-offset: 0;
 }
 
-button.bolt.selected {
-  outline-color: var(--bolt);
+button.basic.selected {
+  outline-color: var(--basic);
 }
-button.frost.selected {
-  outline-color: var(--frost);
+button.sniper.selected {
+  outline-color: var(--sniper);
 }
-button.venom.selected {
-  outline-color: var(--venom);
+button.slow.selected {
+  outline-color: var(--slow);
+}
+button.poison.selected {
+  outline-color: var(--poison);
+}
+button.splash.selected {
+  outline-color: var(--splash);
+}
+button.haste.selected {
+  outline-color: var(--haste);
 }
 
 button.cheat {
-  margin-left: auto;
   border-color: #8a4b16;
   background: #2a1b12;
   color: #f0c38a;
@@ -103,19 +147,6 @@ button.cheat.on {
   background: #7a2e10;
   color: #fff4d6;
   border-color: #ffb060;
-}
-
-#stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-}
-
-#board {
-  display: block;
-  width: 100%;
-  height: 100%;
-  cursor: crosshair;
 }
 
 #banner {
@@ -132,10 +163,29 @@ button.cheat.on {
   font-size: 14px;
 }
 
-/*
-  #overlay { display: flex } used to beat the [hidden] UA rule, so the
-  empty game-over layer stayed on top of the canvas and ate every click.
-*/
+#cube-pop[hidden] {
+  display: none !important;
+}
+
+#cube-pop:not([hidden]) {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 132px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  pointer-events: auto;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+#cube-pop strong {
+  font-size: 12px;
+}
+
 #overlay[hidden] {
   display: none !important;
 }
