@@ -12,8 +12,10 @@ const cubePop = document.querySelector<HTMLElement>("#cube-pop")!;
 const overlay = document.querySelector<HTMLElement>("#overlay")!;
 
 const game = new Game();
-(window as Window & { __asteios?: Game }).__asteios = game;
 const view = new BoardRenderer(canvas);
+const dbg = window as Window & { __asteios?: Game; __asteiosView?: BoardRenderer };
+dbg.__asteios = game;
+dbg.__asteiosView = view;
 
 mountHud(hud, game);
 bindKeys(game);
